@@ -40,7 +40,7 @@ class COCO_Dataset(Dataset):
         caption, img_idx = self.load_annotations(idx)
         image, (w, h) = self.load_image(img_idx)
 
-        image = image.resize((64,64))
+        image = image.resize((256,256))
         tf = transforms.ToTensor()
         image = tf(image)
         return image, caption
