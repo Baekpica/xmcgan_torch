@@ -81,7 +81,7 @@ class BertEmbeddings():
         # _bert_layer = _bert_layer.cuda()
         self._bert_layer.eval()
 
-    def get_bert_for_caption(self, captions: List[str], max_text_length: int = 17):
+    def get_bert_for_caption(self, captions: List[str], max_text_length: int = 16):
         """Returns BERT pooled and sequence outputs for a given list of captions."""
         all_tokens = []
         all_input_mask = []
@@ -132,8 +132,9 @@ for set_name in set_list:
         t1, t2, t3 = bert.get_bert_for_caption(captions)
         print(f'\r{(idx + 1) * 64}/{test_class.__len__()}\t{round(((idx + 1) * 64 / test_class.__len__()) * 100, 1)}%',
               end='')
-        # if idx == 10:
-        #      break
+        print(t1.shape)
+        if idx == 0:
+              break
 
 end_time = datetime.now()
 
