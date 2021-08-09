@@ -56,7 +56,7 @@ class Attention():
 
     def get_contexts(self, word, img, rho = 1):
         sims = []
-        for w, i in zip(word, img.view(64, -1, 768)):
+        for w, i in zip(word, img.view(-1, 256, 768)):
             sim = self.cosine_similarity(i, w)
             sims.append(sim)
         result = torch.stack(sims, 0)
@@ -87,43 +87,44 @@ class Generator(nn.Module):
         self.attention = Attention()
         self.linear1 = nn.Linear(768, 128)
         self.linear2 = nn.Linear(256,4*4*16)
-        self.self_mod1 = SelfModulation(16, 4, 256)
         self.res_up1 = ResBlockUp(16, 16, 4, 256)
-        self.self_mod2 = SelfModulation(16, 8, 256)
+        self.self_mod1 = SelfModulation(16, 8, 256)
         self.res_up2 = ResBlockUp(16, 8, 8, 256)
+        self.self_mod2 = SelfModulation(8, 16, 256)
         self.linear3 = nn.Linear(8, 768)
         self.linear4 = nn.Linear(256*768, 128)
         self.linear5 = nn.Linear(256+128, 16*16*8)
-        self.self_mod3 = SelfModulation(8, 16, 384)
         self.attn_res_up1 = ResBlockUp(8, 8, 16, 384)
-        self.self_mod4 = SelfModulation(8, 32, 384)
+        self.self_mod3 = SelfModulation(8, 32, 384)
         self.attn_res_up2 = ResBlockUp(8, 4, 32, 384)
-        self.self_mod5 = SelfModulation(4, 64, 384)
+        self.self_mod4 = SelfModulation(4, 64, 384)
         self.attn_res_up3 = ResBlockUp(4, 2, 64, 384)
-        self.self_mod6 = SelfModulation(2, 128, 384)
+        self.self_mod5 = SelfModulation(2, 128, 384)
         self.attn_res_up4 = ResBlockUp(2, 1, 128, 384)
-        self.self_mod7 = SelfModulation(1, 256, 384)
+        self.self_mod6 = SelfModulation(1, 256, 384)
         self.conv1 = nn.Conv2d(1, 3,
                                kernel_size=(3, 3),
                                padding=1,
                                stride=(1, 1))
+        self.self_mod7 = SelfModulation(3, 256, 384)
 
     def forward(self, noise, sent, word):
         sent = self.linear1(sent)
         cond = torch.cat([noise, sent], dim=1)
-        x = self.linear2(cond).view(64, 16, 4, 4)
-        x = self.res_up1(self.self_mod1(x, cond), cond)
-        x = self.res_up2(self.self_mod2(x, cond), cond).view(-1, 8)
-        x = self.linear3(x).view(64, 768, 16, 16)
+        x = self.linear2(cond).view(-1, 16, 4, 4)
+        x = self.self_mod1(self.res_up1(x, cond), cond)
+        x = self.self_mod2(self.res_up2(x, cond), cond).permute(0, 2, 3, 1).contiguous().view(-1, 8)
+        x = self.linear3(x).view(-1, 16, 16, 768).permute(0, 3, 1, 2).contiguous()
         context = self.attention.get_contexts(word, x).view(64, -1)
         x = self.linear4(context)
         attn_cond = torch.cat([cond, x], dim=1)
-        x = self.linear5(attn_cond).view(64, 8, 16, 16)
-        x = self.attn_res_up1(self.self_mod3(x, attn_cond), attn_cond)
-        x = self.attn_res_up2(self.self_mod4(x, attn_cond), attn_cond)
-        x = self.attn_res_up3(self.self_mod5(x, attn_cond), attn_cond)
-        x = F.relu(self.attn_res_up4(self.self_mod6(x, attn_cond), attn_cond))
-        x = F.tanh(self.conv1(self.self_mod7(x, attn_cond)))
+        x = self.linear5(attn_cond).view(-1, 8, 16, 16)
+        x = self.self_mod3(self.attn_res_up1(x, attn_cond), attn_cond)
+        x = self.self_mod4(self.attn_res_up2(x, attn_cond), attn_cond)
+        x = self.self_mod5(self.attn_res_up3(x, attn_cond), attn_cond)
+        x = self.self_mod6(self.attn_res_up4(x, attn_cond), attn_cond)
+        x = F.tanh(self.self_mod7(self.conv1(x), attn_cond))
+        x = (x + 1.0) / 2.0
         return x
 
 

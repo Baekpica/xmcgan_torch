@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.utils as utils
 from pytorch_metric_learning import losses
 
 
@@ -12,21 +13,21 @@ class ResBlockDown(nn.Module):
         self.size = size
         self.main_flow = nn.Sequential(
             nn.ReLU(),
-            nn.Conv2d(in_ch_dim, out_ch_dim,
+            utils.spectral_norm(nn.Conv2d(in_ch_dim, out_ch_dim,
                       kernel_size=(3, 3),
                       stride=(1, 1),
-                      padding=1),
+                      padding=1)),
             nn.ReLU(),
-            nn.Conv2d(out_ch_dim, out_ch_dim,
+            utils.spectral_norm(nn.Conv2d(out_ch_dim, out_ch_dim,
                       kernel_size=(3, 3),
                       stride=(1, 1),
-                      padding=1),
+                      padding=1)),
             nn.AvgPool2d(2)
         )
         self.res_flow = nn.Sequential(
-            nn.Conv2d(in_ch_dim, out_ch_dim,
+            utils.spectral_norm(nn.Conv2d(in_ch_dim, out_ch_dim,
                       kernel_size=(1, 1),
-                      stride=(1, 1)),
+                      stride=(1, 1))),
             nn.AvgPool2d(2)
         )
 
@@ -40,16 +41,16 @@ class ResBlockDown(nn.Module):
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1, downsample=None):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels,
+        self.conv1 = utils.spectral_norm(nn.Conv2d(in_channels, out_channels,
                                kernel_size=3,
                                padding=1,
-                               stride=stride)
+                               stride=stride))
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels, out_channels,
+        self.conv2 = utils.spectral_norm(nn.Conv2d(out_channels, out_channels,
                                kernel_size=3,
                                padding=1,
-                               stride=stride)
+                               stride=stride))
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.downsample = downsample
 
@@ -82,17 +83,17 @@ class Discriminator(nn.Module):
             ResidualBlock(16, 16),
             nn.AvgPool2d(4)
         )
-        self.linear1 = nn.Linear(8, 768)
-        self.linear2 = nn.Linear(768, 16)
-        self.linear3 = nn.Linear(16, 1)
+        self.linear1 = utils.spectral_norm(nn.Linear(8, 768))
+        self.linear2 = utils.spectral_norm(nn.Linear(768, 16))
+        self.linear3 = utils.spectral_norm(nn.Linear(16, 1))
 
     def forward(self, x, sent):
         output = self.main1(x)
-        word_cond = self.linear1(output.view(-1, 8)).view(64, -1, 16, 16)
+        img_feat = self.linear1(output.permute(0, 2, 3, 1).contiguous().view(-1, 8)).view(-1, 16, 16, 768).permute(0, 3, 1, 2)
         output = self.main2(output)
-        sent_prj = self.linear2(sent).view(64, 16, 1, 1)
-        output = self.linear3(torch.matmul(sent_prj, output).view(64, -1))
-        return output, word_cond
+        sent_prj = self.linear2(sent).view(-1, 16, 1, 1)
+        output = torch.tanh(self.linear3(torch.matmul(sent_prj, output).view(64, -1)))
+        return output, img_feat
 
 #
 # test_input = torch.randn(64, 3, 256, 256)
@@ -102,7 +103,8 @@ class Discriminator(nn.Module):
 # print(model(test_input, test_sent)[0].shape)
 
 
-test_input = torch.randn(64, 16, 1, 1)
-test_sent = torch.randn(64, 16)
-test_result = torch.matmul(test_sent.view(64, 16, 1, 1), test_input)
-print(test_result.shape)
+# test_input = torch.randn(64, 16, 1, 1)
+# test_sent = torch.randn(64, 16)
+# test_result = torch.matmul(test_sent.view(64, 16, 1, 1), test_input)
+# print(test_result.shape)
+

@@ -7,6 +7,8 @@ import torchvision.transforms as transforms
 from PIL import Image
 from typing import List
 from transformers import BertTokenizer, BertModel
+import torch.nn as nn
+import torchvision.models as models
 from datetime import datetime
 
 
@@ -112,30 +114,46 @@ class BertEmbeddings():
         return token_embedding, sent_embedding, max_len
 
 
-set_list = ['train2014', 'val2014']
-start_time = datetime.now()
-bert = BertEmbeddings()
+class ResNetEmbedding(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.main = nn.Sequential(
+            models.resnet50(pretrained=True),
+            nn.Linear(1000, 768)
+        )
 
-for set_name in set_list:
-    print('\n------------------------------------------------------')
-    test_class = COCO_Dataset(set_name=set_name)
-    test_loader = DataLoader(test_class,
-                             batch_size=64,
-                             shuffle=True,
-                             num_workers=0,
-                             pin_memory=True)
+    def forward(self, x):
+        output = self.main(x)
+        return output
 
-    print(f'Testing with {test_class.__len__()} inputs.')
-    for idx, (images, captions) in enumerate(test_loader):
-        # print(images)
-        # print(captions)
-        t1, t2, t3 = bert.get_bert_for_caption(captions)
-        print(f'\r{(idx + 1) * 64}/{test_class.__len__()}\t{round(((idx + 1) * 64 / test_class.__len__()) * 100, 1)}%',
-              end='')
-        print(t1.shape)
-        if idx == 0:
-              break
 
-end_time = datetime.now()
-
-print('\nDone. It takes', end_time - start_time)
+#
+#
+# set_list = ['train2014', 'val2014']
+# start_time = datetime.now()
+# bert = BertEmbeddings()
+#
+# for set_name in set_list:
+#     print('\n------------------------------------------------------')
+#     test_class = COCO_Dataset(set_name=set_name)
+#     test_loader = DataLoader(test_class,
+#                              batch_size=64,
+#                              shuffle=True,
+#                              num_workers=0,
+#                              pin_memory=True)
+#
+#     print(f'Testing with {test_class.__len__()} inputs.')
+#     for idx, (images, captions) in enumerate(test_loader):
+#         # print(images)
+#         # print(captions)
+#         print(images.shape)
+#         # t1, t2, t3 = bert.get_bert_for_caption(captions)
+#         print(f'\r{(idx + 1) * 64}/{test_class.__len__()}\t{round(((idx + 1) * 64 / test_class.__len__()) * 100, 1)}%',
+#               end='')
+#         # print(t1.shape)
+#         if idx == 0:
+#               break
+#
+# end_time = datetime.now()
+#
+# print('\nDone. It takes', end_time - start_time)
