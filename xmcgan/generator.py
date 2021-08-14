@@ -63,7 +63,7 @@ class Attention():
         exp_x = torch.exp(result * rho)
         sum_exp = torch.sum(exp_x)
         attentions = exp_x / sum_exp
-        return (torch.matmul(attentions, word)).view(64, 16, 16, -1)
+        return (torch.matmul(attentions, word)).view(-1, 16, 16, 768)
 
 
 class SelfModulation(nn.Module):
@@ -82,8 +82,9 @@ class SelfModulation(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size):
         super().__init__()
+        self.batch_size = batch_size
         self.attention = Attention()
         self.linear1 = nn.Linear(768, 128)
         self.linear2 = nn.Linear(256,4*4*16)
@@ -115,7 +116,7 @@ class Generator(nn.Module):
         x = self.self_mod1(self.res_up1(x, cond), cond)
         x = self.self_mod2(self.res_up2(x, cond), cond).permute(0, 2, 3, 1).contiguous().view(-1, 8)
         x = self.linear3(x).view(-1, 16, 16, 768).permute(0, 3, 1, 2).contiguous()
-        context = self.attention.get_contexts(word, x).view(64, -1)
+        context = self.attention.get_contexts(word, x).view(self.batch_size, -1)
         x = self.linear4(context)
         attn_cond = torch.cat([cond, x], dim=1)
         x = self.linear5(attn_cond).view(-1, 8, 16, 16)
@@ -127,11 +128,10 @@ class Generator(nn.Module):
         x = (x + 1.0) / 2.0
         return x
 
-
-# test_noise = torch.randn(64, 128)
-# test_sent = torch.randn(64, 768)
-# test_word = torch.randn(64, 16, 768)
-# model = Generator()
+# device = 'cuda'
+# test_noise = torch.randn(32*3, 128)
+# test_sent = torch.randn(32*3, 768)
+# test_word = torch.randn(32*3, 16, 768)
+# model = Generator(32*3, 3).to(device)
+# model = nn.DataParallel(model, [0, 1, 2])
 # test_result = model(test_noise, test_sent, test_word)
-# print(test_result.shape)
-# print(model)

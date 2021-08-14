@@ -55,22 +55,23 @@ class ResidualBlock(nn.Module):
         self.downsample = downsample
 
     def forward(self, x):
-        residual = x
+        residual = x.clone()
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
         out = self.conv2(out)
         out = self.bn2(out)
         if self.downsample:
-            residual = self.downsample(x)
+            residual = self.downsample(residual)
         out += residual
         out = self.relu(out)
         return out
 
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, batch_size):
         super().__init__()
+        self.batch_size = batch_size
         self.main1 = nn.Sequential(
             ResBlockDown(3, 1, 256),
             ResBlockDown(1, 2, 128),
@@ -83,28 +84,31 @@ class Discriminator(nn.Module):
             ResidualBlock(16, 16),
             nn.AvgPool2d(4)
         )
+        self.conv1 = utils.spectral_norm(nn.Conv2d(8, 768,
+                                                   kernel_size=(1, 1),
+                                                   stride=(1, 1)))
+        self.conv2 = utils.spectral_norm(nn.Conv2d(16, 768,
+                                                   kernel_size=(1, 1),
+                                                   stride=(1, 1)))
         self.linear1 = utils.spectral_norm(nn.Linear(8, 768))
         self.linear2 = utils.spectral_norm(nn.Linear(768, 16))
         self.linear3 = utils.spectral_norm(nn.Linear(16, 1))
 
     def forward(self, x, sent):
         output = self.main1(x)
-        img_feat = self.linear1(output.permute(0, 2, 3, 1).contiguous().view(-1, 8)).view(-1, 16, 16, 768).permute(0, 3, 1, 2)
+        img_region_feat = self.conv1(output)
         output = self.main2(output)
+        img_feat = self.conv2(output)
         sent_prj = self.linear2(sent).view(-1, 16, 1, 1)
-        output = torch.tanh(self.linear3(torch.matmul(sent_prj, output).view(64, -1)))
-        return output, img_feat
+        output = torch.tanh(self.linear3(torch.matmul(sent_prj, output).view(self.batch_size, -1)))
+        return output, img_region_feat, img_feat
 
-#
+
 # test_input = torch.randn(64, 3, 256, 256)
 # test_sent = torch.randn(64, 768)
 # test_word = torch.randn(64, 16, 768)
 # model = Discriminator()
-# print(model(test_input, test_sent)[0].shape)
+# print(model(test_input, test_sent)[2].shape)
 
 
-# test_input = torch.randn(64, 16, 1, 1)
-# test_sent = torch.randn(64, 16)
-# test_result = torch.matmul(test_sent.view(64, 16, 1, 1), test_input)
-# print(test_result.shape)
 

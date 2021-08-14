@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from pycocotools.coco import COCO
 import torchvision.transforms as transforms
 from PIL import Image
@@ -127,20 +127,23 @@ class ResNetEmbedding(nn.Module):
         return output
 
 
-#
+
 #
 # set_list = ['train2014', 'val2014']
 # start_time = datetime.now()
 # bert = BertEmbeddings()
-#
+
 # for set_name in set_list:
 #     print('\n------------------------------------------------------')
 #     test_class = COCO_Dataset(set_name=set_name)
+#     test_sampler = DistributedSampler(test_class)
 #     test_loader = DataLoader(test_class,
 #                              batch_size=64,
 #                              shuffle=True,
 #                              num_workers=0,
-#                              pin_memory=True)
+#                              pin_memory=True,
+#                              sampler=test_sampler)
+#
 #
 #     print(f'Testing with {test_class.__len__()} inputs.')
 #     for idx, (images, captions) in enumerate(test_loader):
