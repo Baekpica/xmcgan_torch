@@ -14,7 +14,7 @@ import numpy as np
 
 # TBD - set params
 num_epochs = 100
-batch_size = 8 * 3
+batch_size = 12 * 3
 num_gpu = 3
 device = 'cuda'
 d_iter_per_g = 2
@@ -125,5 +125,5 @@ for epoch in range(num_epochs):
             plt.axis("off")
             plt.title("Fake Images")
             plt.imshow(np.transpose(vutils.make_grid(out_g[:16].to('cpu'), normalize=True), (1,2,0)))
-            plt.savefig(f'./exp/20210814/{epoch}_{idx}.png')
+            plt.savefig(f'./exp/20210815/{epoch}_{idx}.png')
             plt.clf()

@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from pytorch_metric_learning import losses
 
 
@@ -118,21 +117,6 @@ class Attention():
         sum_exp = torch.sum(exp_x, dim=-1).view(-1, 256, 1)
         attentions = torch.div(exp_x, sum_exp)
         return (torch.matmul(attentions, word)).view(-1, 16, 16, 768)
-
-
-# class SelfModulation(nn.Module):
-#     def __init__(self, in_ch_dim, kernel_size, cond_dim):
-#         super().__init__()
-#         self.in_ch_dim = in_ch_dim
-#         self.kernel_size = kernel_size
-#         self.linear1 = nn.Linear(cond_dim, in_ch_dim*kernel_size*kernel_size)
-#         self.linear2 = nn.Linear(cond_dim, in_ch_dim*kernel_size*kernel_size)
-#         self.bn1 = nn.BatchNorm2d(in_ch_dim)
-#
-#     def forward(self, h, cond):
-#         x = self.linear1(cond).view(-1, self.in_ch_dim, self.kernel_size, self.kernel_size) * (self.bn1(h))
-#         x += self.linear2(cond).view(-1, self.in_ch_dim, self.kernel_size, self.kernel_size)
-#         return x
 
 
 class Generator(nn.Module):
