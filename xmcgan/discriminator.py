@@ -33,9 +33,9 @@ class ResBlockDown(nn.Module):
 
     def forward(self, x):
         res = self.res_flow(x)
-        x = self.main_flow(x)
-        x += res
-        return x
+        output = self.main_flow(x)
+        output += res
+        return output
 
 
 class ResidualBlock(nn.Module):
@@ -100,7 +100,8 @@ class Discriminator(nn.Module):
         output = self.main2(output)
         img_feat = self.conv2(output)
         sent_prj = self.linear2(sent).view(-1, 16, 1, 1)
-        output = torch.tanh(self.linear3(torch.matmul(sent_prj, output).view(self.batch_size, -1)))
+        # output = torch.tanh(self.linear3(torch.matmul(sent_prj, output).view(self.batch_size, -1)))
+        output = self.linear3(torch.matmul(sent_prj, output).view(self.batch_size, -1))
         return output, img_region_feat, img_feat
 
 
@@ -109,6 +110,4 @@ class Discriminator(nn.Module):
 # test_word = torch.randn(64, 16, 768)
 # model = Discriminator()
 # print(model(test_input, test_sent)[2].shape)
-
-
 

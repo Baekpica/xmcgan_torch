@@ -3,3 +3,4 @@ main.py
 /.idea
 cgan.py
 /cgan
+train_multi.py
