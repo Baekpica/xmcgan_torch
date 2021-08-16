@@ -129,3 +129,6 @@ for epoch in range(num_epochs):
             plt.imshow(np.transpose(vutils.make_grid(out_g[:16].to('cpu')), (1,2,0)))
             plt.savefig(f'./exp/20210816/{epoch}_{idx}.png')
             plt.clf()
+
+
+            #
