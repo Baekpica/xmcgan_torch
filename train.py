@@ -75,8 +75,9 @@ for epoch in range(num_epochs):
         real_word_c_loss = contrastive_loss.attentional_contrastive_loss(word, region_feat_real)
         real_word_c_loss.backward(retain_graph=True)
         d_gan_loss = xmc_losses.hinge_loss_d(out_d_real, out_d_fake, device)
-        d_gan_loss.backward()
+        d_gan_loss.backward(retain_graph=True)
         d_loss = d_gan_loss + loss_coef_1*real_sent_c_loss + loss_coef_2*real_word_c_loss
+        d_loss.backward()
         # d_losses.append(d_loss)
         opt_d.step()
 
@@ -94,8 +95,9 @@ for epoch in range(num_epochs):
             img_c_loss.backward(retain_graph=True)
 
             g_gan_loss = xmc_losses.hinge_loss_g(out_d_fake)
-            g_gan_loss.backward()
+            g_gan_loss.backward(retain_graph=True)
             g_loss = g_gan_loss + loss_coef_1*fake_sent_c_loss + loss_coef_3*img_c_loss + loss_coef_2 * fake_word_c_loss
+            g_loss.backward()
             # g_losses.append(Variable(g_loss, requires_grad=False))
             opt_g.step()
 
