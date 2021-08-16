@@ -14,7 +14,7 @@ import numpy as np
 
 # TBD - set params
 num_epochs = 100
-batch_size = 12 * 3
+batch_size = 10 * 3
 num_gpu = 3
 device = 'cuda'
 d_iter_per_g = 2
@@ -118,12 +118,12 @@ for epoch in range(num_epochs):
             plt.subplot(1,2,1)
             plt.axis("off")
             plt.title("Real Images")
-            plt.imshow(np.transpose(vutils.make_grid(images[:16].to('cpu'), normalize=True), (1,2,0)))
+            plt.imshow(np.transpose(vutils.make_grid(images[:16].to('cpu')), (1,2,0)))
 
             # Plot the fake images from the last epoch
             plt.subplot(1,2,2)
             plt.axis("off")
             plt.title("Fake Images")
-            plt.imshow(np.transpose(vutils.make_grid(out_g[:16].to('cpu'), normalize=True), (1,2,0)))
-            plt.savefig(f'./exp/20210815/{epoch}_{idx}.png')
+            plt.imshow(np.transpose(vutils.make_grid(out_g[:16].to('cpu')), (1,2,0)))
+            plt.savefig(f'./exp/20210816/{epoch}_{idx}.png')
             plt.clf()

@@ -18,6 +18,8 @@ class ContrastiveLoss():
 
     def contrastive_loss(self, pair1, pair2, temperature=0.1):
         # This is used for sent_contrastive loss or img_contrastive_loss
+        pair1 = self.l2_normalize(pair1, axis=1)
+        pair2 = self.l2_normalize(pair2, axis=1)
         mat_similarity = torch.exp(self.similarity_func(pair1, pair2)/temperature)
         sum_similarity = torch.sum(mat_similarity, dim=1).view(-1, 1)
         loss = -torch.log(torch.div(mat_similarity, sum_similarity))
@@ -32,7 +34,9 @@ class ContrastiveLoss():
         return output
 
     def get_attentional_score(self, word, region, rho=1, temperature=0.1):
+        word = self.l2_normalize(word, -1)
         region_feat = region.permute(1, 2, 0).contiguous().view(-1, 768)
+        region_feat = self.l2_normalize(region_feat, -1)
         attentions = torch.exp(rho * self.similarity_func(word, region_feat))
         sum_attentions = torch.sum(attentions, dim=-1).view(-1, 1)
         attentions = torch.div(attentions, sum_attentions)
@@ -70,6 +74,12 @@ class ContrastiveLoss():
         sum_losses = torch.sum(losses)
         output = sum_losses / n
         return output
+
+    def l2_normalize(self, x, axis=None, epsilon=1e-12):
+        square = torch.square(x)
+        square_sum = torch.sum(square, dim=axis, keepdims=True)
+        x_inv_norm = torch.rsqrt(torch.maximum(square_sum, torch.tensor(epsilon)))
+        return torch.multiply(x, x_inv_norm)
 
 
 def hinge_loss_d(out_d_real, out_d_fake, device):
