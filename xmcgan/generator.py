@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from pytorch_metric_learning import losses
-
+from losses import ContrastiveLoss
+import torch.nn.functional as F
 
 class SelfModulationBatchNorm(nn.Module):
     def __init__(self, in_ch_dim, cond_dim):
@@ -106,17 +107,28 @@ class AttnResBlockUp(nn.Module):
 class Attention():
     def __init__(self):
         self.cosine_similarity = losses.NTXentLoss().get_distance()
+        self.normalize = ContrastiveLoss()
 
-    def get_contexts(self, word, img, rho = 1):
-        sims = []
-        for w, i in zip(word, img.permute(0, 2, 3, 1).contiguous().view(-1, 256, 768)):
-            sim = self.cosine_similarity(i, w)
-            sims.append(sim)
-        result = torch.stack(sims, 0)
-        exp_x = torch.exp(result * rho)
-        sum_exp = torch.sum(exp_x, dim=-1).view(-1, 256, 1)
-        attentions = torch.div(exp_x, sum_exp)
-        return (torch.matmul(attentions, word)).view(-1, 16, 16, 768)
+    def get_contexts(self, word, img, word_len=None, gamma=1):
+        spatial_region_size = img.size(-1)
+        total_region_size = spatial_region_size * spatial_region_size
+        total_word_len = word.size(1)
+
+        word = self.normalize.l2_normalize(word, -1)
+        img = self.normalize.l2_normalize(img.permute(0, 2, 3, 1).contiguous().view(-1, 256, 768), -1)
+
+        attn_matrix = torch.matmul(img, word.permute(0, 2, 1).contiguous())
+        attn_matrix = attn_matrix * gamma
+
+        if word_len is not None:
+            mask = torch.arange(total_word_len)[None, :] >= word_len[:, None]
+            mask = mask * -1e9
+            mask = mask.view(-1, 1, total_word_len)
+            mask = torch.tile(mask, [1, total_region_size, 1])
+            attn_matrix = attn_matrix + mask
+        attn = F.softmax(attn_matrix, -1)
+        region_context = torch.matmul(attn, word)
+        return region_context.view(-1, 16, 16, 768)
 
 
 class Generator(nn.Module):
@@ -136,14 +148,14 @@ class Generator(nn.Module):
         self.attn_batch_norm = AttnSelfModulationBatchNorm(1, 1024)
         self.conv2 = nn.Conv2d(1, 3, kernel_size=(3, 3), padding=1, stride=(1, 1))
 
-    def forward(self, noise, sent, word):
+    def forward(self, noise, sent, word, max_len):
         sent = self.linear1(sent)
         cond = torch.cat([noise, sent], dim=1)
         x = self.linear2(cond).view(-1, 16, 4, 4)
         x = self.res_up1(x, cond)
         x = self.res_up2(x, cond)
         x_cond = self.conv1(x) # (b, 768, 16, 16)
-        context = self.attention.get_contexts(word, x_cond)
+        context = self.attention.get_contexts(word, x_cond, max_len)
         attn_cond = torch.tile(cond.view(-1, 1, 1, 256), [1, 16, 16, 1])
         attn_cond = torch.cat([context, attn_cond], dim=-1).permute(0, 3, 1, 2).contiguous()
         x, attn_cond1 = self.attn_res_up1(x, attn_cond)
@@ -155,3 +167,4 @@ class Generator(nn.Module):
         x = torch.tanh(self.conv2(x))
         x = (x + 1.0) / 2.0
         return x
+
