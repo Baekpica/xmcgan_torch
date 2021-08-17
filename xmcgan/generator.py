@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from pytorch_metric_learning import losses
-from losses import ContrastiveLoss
+from .losses import ContrastiveLoss
 import torch.nn.functional as F
+
 
 class SelfModulationBatchNorm(nn.Module):
     def __init__(self, in_ch_dim, cond_dim):
@@ -121,7 +122,7 @@ class Attention():
         attn_matrix = attn_matrix * gamma
 
         if word_len is not None:
-            mask = torch.arange(total_word_len)[None, :] >= word_len[:, None]
+            mask = torch.arange(total_word_len).cuda()[None, :] >= word_len.cuda()[:, None]
             mask = mask * -1e9
             mask = mask.view(-1, 1, total_word_len)
             mask = torch.tile(mask, [1, total_region_size, 1])

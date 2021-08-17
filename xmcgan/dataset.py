@@ -136,24 +136,21 @@ class ResNetEmbedding(nn.Module):
 # for set_name in set_list:
 #     print('\n------------------------------------------------------')
 #     test_class = COCO_Dataset(set_name=set_name)
-#     test_sampler = DistributedSampler(test_class)
+#     # test_sampler = DistributedSampler(test_class)
 #     test_loader = DataLoader(test_class,
 #                              batch_size=64,
 #                              shuffle=True,
 #                              num_workers=0,
-#                              pin_memory=True,
-#                              sampler=test_sampler)
+#                              pin_memory=True)
 #
 #
 #     print(f'Testing with {test_class.__len__()} inputs.')
 #     for idx, (images, captions) in enumerate(test_loader):
-#         # print(images)
-#         # print(captions)
-#         print(images.shape)
-#         # t1, t2, t3 = bert.get_bert_for_caption(captions)
+#         word, sent, max_len = bert.get_bert_for_caption(captions)
 #         print(f'\r{(idx + 1) * 64}/{test_class.__len__()}\t{round(((idx + 1) * 64 / test_class.__len__()) * 100, 1)}%',
 #               end='')
-#         # print(t1.shape)
+#         print(max_len)
+#         print(max_len.shape)
 #         if idx == 0:
 #               break
 #

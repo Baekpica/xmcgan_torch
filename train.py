@@ -53,6 +53,10 @@ contrastive_loss = xmc_losses.ContrastiveLoss()
 opt_d = optim.Adam(model_d.parameters(), lr=lr_d, betas=(beta1, beta2))
 opt_g = optim.Adam(model_g.parameters(), lr=lr_g, betas=(beta1, beta2))
 
+
+model_g.train()
+model_d.train()
+
 img_list = []
 d_losses = []
 g_losses = []
@@ -66,7 +70,7 @@ for epoch in range(num_epochs):
         max_len = max_len.to(device)
         model_d.zero_grad()
         noises = torch.randn(batch_size, 128).to(device)
-        out_g = model_g(noises, sents, word).to(device)
+        out_g = model_g(noises, sents, word, max_len).to(device)
         out_d_real, region_feat_real, img_feat_real = model_d(images, sents)
         out_d_fake, region_feat_fake, img_feat_fake = model_d(out_g, sents)
 
@@ -83,7 +87,7 @@ for epoch in range(num_epochs):
 
         if idx % 2 == 0:
             model_g.zero_grad()
-            out_g = model_g(noises, sents, word)
+            out_g = model_g(noises, sents, word, max_len).to(device)
             out_d_fake, region_feat_fake, img_feat_fake = model_d(out_g, sents)
             out_d_real, region_feat_real, img_feat_real = model_d(images, sents)
             fake_sent_c_loss = contrastive_loss.contrastive_loss(img_feat_fake.view(batch_size, -1), sents)
@@ -127,7 +131,7 @@ for epoch in range(num_epochs):
             plt.axis("off")
             plt.title("Fake Images")
             plt.imshow(np.transpose(vutils.make_grid(out_g[:16].to('cpu')), (1,2,0)))
-            plt.savefig(f'./exp/20210816/{epoch}_{idx}.png')
+            plt.savefig(f'./exp/20210818/{epoch}_{idx}.png')
             plt.clf()
 
 
