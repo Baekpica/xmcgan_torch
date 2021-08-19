@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-from pytorch_metric_learning import losses
-from .losses import ContrastiveLoss
 import torch.nn.functional as F
 
 
@@ -105,38 +103,39 @@ class AttnResBlockUp(nn.Module):
         return output, cond1
 
 
-class Attention():
-    def __init__(self):
-        self.cosine_similarity = losses.NTXentLoss().get_distance()
-        self.normalize = ContrastiveLoss()
+def get_contexts(word, img, word_len=None, gamma=1):
+    spatial_region_size = img.size(-1)
+    total_region_size = spatial_region_size * spatial_region_size
+    total_word_len = word.size(1)
 
-    def get_contexts(self, word, img, word_len=None, gamma=1):
-        spatial_region_size = img.size(-1)
-        total_region_size = spatial_region_size * spatial_region_size
-        total_word_len = word.size(1)
+    word = l2_normalize(word, -1)
+    img = l2_normalize(img.permute(0, 2, 3, 1).contiguous().view(-1, 256, 768), -1)
 
-        word = self.normalize.l2_normalize(word, -1)
-        img = self.normalize.l2_normalize(img.permute(0, 2, 3, 1).contiguous().view(-1, 256, 768), -1)
+    attn_matrix = torch.matmul(img, word.permute(0, 2, 1).contiguous())
+    attn_matrix = attn_matrix * gamma
 
-        attn_matrix = torch.matmul(img, word.permute(0, 2, 1).contiguous())
-        attn_matrix = attn_matrix * gamma
+    if word_len is not None:
+        mask = torch.arange(total_word_len).cuda()[None, :] >= word_len.cuda()[:, None]
+        mask = mask * -1e9
+        mask = mask.view(-1, 1, total_word_len)
+        mask = torch.tile(mask, [1, total_region_size, 1])
+        attn_matrix = attn_matrix + mask
+    attn = F.softmax(attn_matrix, -1)
+    region_context = torch.matmul(attn, word)
+    return region_context.view(-1, 16, 16, 768)
 
-        if word_len is not None:
-            mask = torch.arange(total_word_len).cuda()[None, :] >= word_len.cuda()[:, None]
-            mask = mask * -1e9
-            mask = mask.view(-1, 1, total_word_len)
-            mask = torch.tile(mask, [1, total_region_size, 1])
-            attn_matrix = attn_matrix + mask
-        attn = F.softmax(attn_matrix, -1)
-        region_context = torch.matmul(attn, word)
-        return region_context.view(-1, 16, 16, 768)
+
+def l2_normalize(x, axis=None, epsilon=1e-12):
+    square = torch.square(x)
+    square_sum = torch.sum(square, dim=axis, keepdims=True)
+    x_inv_norm = torch.rsqrt(torch.maximum(square_sum, torch.tensor(epsilon)))
+    return torch.multiply(x, x_inv_norm)
 
 
 class Generator(nn.Module):
     def __init__(self, batch_size):
         super().__init__()
         self.batch_size = batch_size
-        self.attention = Attention()
         self.linear1 = nn.Linear(768, 128)
         self.linear2 = nn.Linear(256,4*4*16)
         self.res_up1 = ResBlockUp(16, 16, 4, 256)
@@ -151,12 +150,12 @@ class Generator(nn.Module):
 
     def forward(self, noise, sent, word, max_len):
         sent = self.linear1(sent)
-        cond = torch.cat([noise, sent], dim=1)
+        cond = torch.cat([sent, noise], dim=1)
         x = self.linear2(cond).view(-1, 16, 4, 4)
         x = self.res_up1(x, cond)
         x = self.res_up2(x, cond)
-        x_cond = self.conv1(x) # (b, 768, 16, 16)
-        context = self.attention.get_contexts(word, x_cond, max_len)
+        x_cond = self.conv1(x)
+        context = get_contexts(word, x_cond, max_len)
         attn_cond = torch.tile(cond.view(-1, 1, 1, 256), [1, 16, 16, 1])
         attn_cond = torch.cat([context, attn_cond], dim=-1).permute(0, 3, 1, 2).contiguous()
         x, attn_cond1 = self.attn_res_up1(x, attn_cond)
@@ -166,6 +165,5 @@ class Generator(nn.Module):
         x = self.attn_batch_norm(x, attn_cond4)
         x = torch.relu(x)
         x = torch.tanh(self.conv2(x))
-        x = (x + 1.0) / 2.0
         return x
 

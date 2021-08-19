@@ -96,4 +96,12 @@ class Discriminator(nn.Module):
         output = self.linear1(x_pool)
         sent_prj = self.linear2(sent)
         output += torch.sum(x_pool*sent_prj, dim=1, keepdim=True)
+        output = torch.sigmoid(output)
         return output, img_region_feat, img_feat
+
+# test_model = Discriminator(64)
+# test_input = torch.randn(64, 3, 256, 256)
+# test_sent = torch.randn(64, 768)
+# result, _, _ = test_model(test_input, test_sent)
+# print(max(result))
+# print(min(result))

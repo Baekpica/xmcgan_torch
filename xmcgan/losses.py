@@ -1,7 +1,5 @@
 from pytorch_metric_learning import losses
 import torch
-from torch.autograd import Variable
-
 
 # def get_contrastive_loss(pair1, pair2, loss_func):
 #     embeddings = torch.cat([pair1, pair2], dim=1)
@@ -82,7 +80,7 @@ class ContrastiveLoss():
         return torch.multiply(x, x_inv_norm)
 
 
-def hinge_loss_d(out_d_real, out_d_fake, device):
+def hinge_loss_d(out_d_real, out_d_fake):
     real_loss = torch.relu(1.0 - out_d_real)
     fake_loss = torch.relu(1.0 + out_d_fake)
     loss = torch.mean(real_loss + fake_loss)
@@ -92,6 +90,34 @@ def hinge_loss_d(out_d_real, out_d_fake, device):
 def hinge_loss_g(out_d_fake):
     loss = -torch.mean(out_d_fake)
     return loss
+
+
+def hinge_loss_d_revised(out_d_real, out_d_fake):
+    """"exactly same with hinge_loss_d"""
+    real_loss = torch.minimum(torch.zeros_like(out_d_real), -1.0 + out_d_real)
+    real_loss = -torch.mean(real_loss)
+    fake_loss = torch.minimum(torch.zeros_like(out_d_fake), -1.0 - out_d_fake)
+    fake_loss = -torch.mean(fake_loss)
+    loss = real_loss + fake_loss
+    return loss
+
+# x = torch.sigmoid(torch.randn(64, 1))
+# y = torch.sigmoid(torch.randn(64, 1))
+# print(hinge_loss_d_revised(x, y))
+# print(hinge_loss_d(x, y))
+
+class NTXentLoss():
+    def __init__(self, temperature = 0.1):
+        self.loss_func = losses.NTXentLoss(temperature)
+
+    def get_contrastive_loss(self, pair1, pair2):
+        embeddings = torch.cat([pair1, pair2])
+        indices = torch.arange(0, pair1.size(0))
+        labels = torch.cat([indices, indices])
+        loss = self.loss_func(embeddings, labels)
+        return loss
+
+
 
 
 # batch_size = 64

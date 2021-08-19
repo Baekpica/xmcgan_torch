@@ -4,17 +4,13 @@ import torch
 from torch import optim
 from xmcgan import dataset, generator, discriminator
 import xmcgan.losses as xmc_losses
-from torch.autograd import Variable
-import torch.distributed as dist
 import torch.nn as nn
-import torchvision.transforms as transforms
 import torchvision.utils as vutils
 import numpy as np
 
-
 # TBD - set params
 num_epochs = 100
-batch_size = 10 * 3
+batch_size = 12 * 3
 num_gpu = 3
 device = 'cuda'
 d_iter_per_g = 2
@@ -44,6 +40,7 @@ bert = dataset.BertEmbeddings()
 
 # loss func
 contrastive_loss = xmc_losses.ContrastiveLoss()
+loss_func = xmc_losses.NTXentLoss()
 
 # # initialize weights
 # model_d.apply(initialize_weights)
@@ -53,9 +50,11 @@ contrastive_loss = xmc_losses.ContrastiveLoss()
 opt_d = optim.Adam(model_d.parameters(), lr=lr_d, betas=(beta1, beta2))
 opt_g = optim.Adam(model_g.parameters(), lr=lr_g, betas=(beta1, beta2))
 
-
+# train
 model_g.train()
 model_d.train()
+
+# noises = torch.randn(batch_size, 128).to(device)
 
 img_list = []
 d_losses = []
@@ -68,17 +67,18 @@ for epoch in range(num_epochs):
         word = word.to(device)
         sents = sents.to(device)
         max_len = max_len.to(device)
-        model_d.zero_grad()
         noises = torch.randn(batch_size, 128).to(device)
+        model_d.zero_grad()
         out_g = model_g(noises, sents, word, max_len).to(device)
         out_d_real, region_feat_real, img_feat_real = model_d(images, sents)
         out_d_fake, region_feat_fake, img_feat_fake = model_d(out_g, sents)
 
+        # real_sent_c_loss = loss_func.get_contrastive_loss(img_feat_real.view(batch_size, -1), sents)
         real_sent_c_loss = contrastive_loss.contrastive_loss(img_feat_real.view(batch_size, -1), sents)
         real_sent_c_loss.backward(retain_graph=True)
         real_word_c_loss = contrastive_loss.attentional_contrastive_loss(word, region_feat_real)
         real_word_c_loss.backward(retain_graph=True)
-        d_gan_loss = xmc_losses.hinge_loss_d(out_d_real, out_d_fake, device)
+        d_gan_loss = xmc_losses.hinge_loss_d(out_d_real, out_d_fake)
         d_gan_loss.backward(retain_graph=True)
         d_loss = d_gan_loss + loss_coef_1*real_sent_c_loss + loss_coef_2*real_word_c_loss
         d_loss.backward()
@@ -91,9 +91,12 @@ for epoch in range(num_epochs):
             out_d_fake, region_feat_fake, img_feat_fake = model_d(out_g, sents)
             out_d_real, region_feat_real, img_feat_real = model_d(images, sents)
             fake_sent_c_loss = contrastive_loss.contrastive_loss(img_feat_fake.view(batch_size, -1), sents)
+            # fake_sent_c_loss = loss_func.get_contrastive_loss(img_feat_fake.view(batch_size, -1), sents)
             fake_sent_c_loss.backward(retain_graph=True)
             fake_word_c_loss = contrastive_loss.attentional_contrastive_loss(word, region_feat_fake)
             fake_word_c_loss.backward(retain_graph=True)
+            # img_c_loss = loss_func.get_contrastive_loss(img_feat_real.view(batch_size, -1),
+            #                                             img_feat_fake.view(batch_size, -1))
             img_c_loss = contrastive_loss.contrastive_loss(img_feat_real.view(batch_size, -1),
                                                            img_feat_fake.view(batch_size, -1))
             img_c_loss.backward(retain_graph=True)
@@ -109,7 +112,7 @@ for epoch in range(num_epochs):
               f'\t{round(((idx + 1) * batch_size / data_class.__len__()) * 100, 1)}%',
               end='')
 
-        if idx % 100 == 0:
+        if idx % 10 == 0:
             print('\nDiscriminator Loss:', d_loss,
                   '\n\tImg-Sent Real Contrastive Loss:', real_sent_c_loss,
                   '\n\tWord-Region Real Contastive Loss:', real_word_c_loss,
@@ -120,18 +123,20 @@ for epoch in range(num_epochs):
                   '\n\tImg-Img Contrastive Loss:', img_c_loss,
                   '\n\tGenerator Hinge Loss:', g_gan_loss)
 
-        if idx % 10 == 0:
-            plt.subplot(1,2,1)
-            plt.axis("off")
-            plt.title("Real Images")
-            plt.imshow(np.transpose(vutils.make_grid(images[:16].to('cpu')), (1,2,0)))
-
+        if idx % 50 == 0:
+            # plt.subplot(1,2,1)
+            # plt.axis("off")
+            # plt.title("Real Images")
+            # plt.imshow(np.transpose(vutils.make_grid(images[:16].to('cpu')), (1, 2, 0)))
+            with torch.no_grad():
+                fake = model_g(noises, sents, word, max_len).detach().cpu()
             # Plot the fake images from the last epoch
-            plt.subplot(1,2,2)
+            # plt.subplot(1,2,2)
             plt.axis("off")
             plt.title("Fake Images")
-            plt.imshow(np.transpose(vutils.make_grid(out_g[:16].to('cpu')), (1,2,0)))
-            plt.savefig(f'./exp/20210818/{epoch}_{idx}.png')
+            plt.imshow(np.transpose(vutils.make_grid(fake[:16].to('cpu')), (1, 2, 0)))
+            plt.show()
+            # plt.savefig(f'./exp/20210818/{epoch}_{idx}.png')
             plt.clf()
 
 
