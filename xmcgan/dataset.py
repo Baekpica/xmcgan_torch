@@ -103,8 +103,8 @@ class BertEmbeddings():
             all_tokens.append(np.asarray(tokens, np.int32))
             all_input_mask.append(np.asarray(input_mask, np.int32))
 
-        ids = torch.tensor(all_tokens)
-        input_mask = torch.tensor(all_input_mask, )
+        ids = torch.tensor(np.array(all_tokens))
+        input_mask = torch.tensor(np.array(all_input_mask), )
         segment_ids = torch.zeros_like(ids)
 
         # print(ids)
@@ -151,14 +151,15 @@ class ResNetEmbedding(nn.Module):
 #
 #     print(f'Testing with {test_class.__len__()} inputs.')
 #     for idx, (images, captions) in enumerate(test_loader):
-#         print(images.shape)
+#         # print(images.shape)
 #         word, sent, max_len = bert.get_bert_for_caption(captions)
-#         print(f'\r{(idx + 1) * 64}/{test_class.__len__()}\t{round(((idx + 1) * 64 / test_class.__len__()) * 100, 1)}%',
-#               end='')
-#         plt.axis("off")
-#         plt.title("Real Images")
-#         plt.imshow(np.transpose(vutils.make_grid(images[:16].to('cpu')), (1, 2, 0)))
-#         plt.show()
+#         print(max_len)
+#         # print(f'\r{(idx + 1) * 64}/{test_class.__len__()}\t{round(((idx + 1) * 64 / test_class.__len__()) * 100, 1)}%',
+#         #       end='')
+#         # plt.axis("off")
+#         # plt.title("Real Images")
+#         # plt.imshow(np.transpose(vutils.make_grid(images[:16].to('cpu')), (1, 2, 0)))
+#         # plt.show()
 #         if idx == 0:
 #               break
 # end_time = datetime.now()

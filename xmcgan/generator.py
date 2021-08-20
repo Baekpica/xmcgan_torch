@@ -165,5 +165,6 @@ class Generator(nn.Module):
         x = self.attn_batch_norm(x, attn_cond4)
         x = torch.relu(x)
         x = torch.tanh(self.conv2(x))
+        x = (x + 1.0) / 2.0
         return x
 
