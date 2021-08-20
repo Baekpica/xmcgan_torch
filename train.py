@@ -10,7 +10,7 @@ import numpy as np
 
 # TBD - set params
 num_epochs = 100
-batch_size = 14 * 3
+batch_size = 15 * 3
 num_gpu = 3
 device = 'cuda'
 d_iter_per_g = 2
@@ -33,7 +33,8 @@ data_loader = dataset.DataLoader(data_class,
                                  batch_size=batch_size,
                                  shuffle=True,
                                  num_workers=0,
-                                 pin_memory=True)
+                                 pin_memory=True,
+                                 drop_last=True)
 
 bert = dataset.BertEmbeddings()
 # resnet = dataset.ResNetEmbedding().to(device)
@@ -110,11 +111,11 @@ for epoch in range(num_epochs):
             # g_losses.append(Variable(g_loss, requires_grad=False))
             opt_g.step()
 
-        print(f'\r{(idx + 1) * batch_size}/{data_class.__len__()}'
-              f'\t{round(((idx + 1) * batch_size / data_class.__len__()) * 100, 1)}%',
+        print(f'\r{(idx + 1) * batch_size}/{(data_class.__len__()) - (data_class.__len__() % batch_size)}'
+              f'\t{round(((idx + 1) * batch_size / ((data_class.__len__()) - (data_class.__len__() % batch_size))) * 100, 1)}%',
               end='')
 
-        if idx % 10 == 0:
+        if idx % 100 == 0:
             print('\nDiscriminator Loss:', d_loss,
                   '\n\tImg-Sent Real Contrastive Loss:', real_sent_c_loss,
                   '\n\tWord-Region Real Contastive Loss:', real_word_c_loss,
@@ -125,7 +126,7 @@ for epoch in range(num_epochs):
                   '\n\tImg-Img Contrastive Loss:', img_c_loss,
                   '\n\tGenerator Hinge Loss:', g_gan_loss)
 
-        if idx % 50 == 0:
+        # if idx % 50 == 0:
             # plt.subplot(1,2,1)
             # plt.axis("off")
             # plt.title("Real Images")
@@ -141,4 +142,17 @@ for epoch in range(num_epochs):
             # plt.savefig(f'./exp/20210818/{epoch}_{idx}.png')
             plt.clf()
 
+        if idx % 500 == 0:
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model_g.state_dict(),
+                'optimizer_state_dict': opt_g.state_dict(),
+                'loss': g_loss
+            }, f'./exp/20210821/{epoch}_{idx}_g.tar')
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model_d.state_dict(),
+                'optimizer_state_dict': opt_d.state_dict(),
+                'loss': d_loss
+            }, f'./exp/20210821/{epoch}_{idx}_d.tar')
             #
