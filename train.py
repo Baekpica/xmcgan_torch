@@ -10,7 +10,7 @@ import numpy as np
 
 # TBD - set params
 num_epochs = 100
-batch_size = 16 * 3
+batch_size = 14 * 3
 num_gpu = 3
 device = 'cuda'
 d_iter_per_g = 2
@@ -74,15 +74,15 @@ for epoch in range(num_epochs):
         out_d_fake, region_feat_fake, img_feat_fake = model_d(out_g, sents)
 
         # real_sent_c_loss = loss_func.get_contrastive_loss(img_feat_real.view(batch_size, -1), sents)
-        real_sent_c_loss = loss_func.contrastive_loss(img_feat_real.view(batch_size, -1), sents)
+        real_sent_c_loss = contrastive_loss.contrastive_loss(img_feat_real.view(batch_size, -1), sents)
         real_sent_c_loss.backward(retain_graph=True)
         region_feat_real = region_feat_real.permute(0, 2, 3, 1).contiguous().view(batch_size, -1, 768)
         real_word_c_loss = loss_func.word_loss(region_feat_real, word, max_len)
         real_word_c_loss.backward(retain_graph=True)
         d_gan_loss = xmc_losses.hinge_loss_d(out_d_real, out_d_fake)
-        d_gan_loss.backward(retain_graph=True)
+        d_gan_loss.backward()
         d_loss = d_gan_loss + loss_coef_1*real_sent_c_loss + loss_coef_2*real_word_c_loss
-        d_loss.backward()
+        # d_loss.backward()
         # d_losses.append(d_loss)
         opt_d.step()
 
@@ -91,7 +91,7 @@ for epoch in range(num_epochs):
             out_g = model_g(noises, sents, word, max_len).to(device)
             out_d_fake, region_feat_fake, img_feat_fake = model_d(out_g, sents)
             out_d_real, region_feat_real, img_feat_real = model_d(images, sents)
-            fake_sent_c_loss = loss_func.contrastive_loss(img_feat_fake.view(batch_size, -1), sents)
+            fake_sent_c_loss = contrastive_loss.contrastive_loss(img_feat_fake.view(batch_size, -1), sents)
             # fake_sent_c_loss = loss_func.get_contrastive_loss(img_feat_fake.view(batch_size, -1), sents)
             fake_sent_c_loss.backward(retain_graph=True)
             region_feat_fake = region_feat_fake.permute(0, 2, 3, 1).contiguous().view(batch_size, -1, 768)
@@ -99,14 +99,14 @@ for epoch in range(num_epochs):
             fake_word_c_loss.backward(retain_graph=True)
             # img_c_loss = loss_func.get_contrastive_loss(img_feat_real.view(batch_size, -1),
             #                                             img_feat_fake.view(batch_size, -1))
-            img_c_loss = loss_func.contrastive_loss(img_feat_real.view(batch_size, -1),
-                                                    img_feat_fake.view(batch_size, -1))
+            img_c_loss = contrastive_loss.contrastive_loss(img_feat_real.view(batch_size, -1),
+                                                           img_feat_fake.view(batch_size, -1))
             img_c_loss.backward(retain_graph=True)
 
             g_gan_loss = xmc_losses.hinge_loss_g(out_d_fake)
-            g_gan_loss.backward(retain_graph=True)
+            g_gan_loss.backward()
             g_loss = g_gan_loss + loss_coef_1*fake_sent_c_loss + loss_coef_3*img_c_loss + loss_coef_2 * fake_word_c_loss
-            g_loss.backward()
+            # g_loss.backward()
             # g_losses.append(Variable(g_loss, requires_grad=False))
             opt_g.step()
 
@@ -140,6 +140,5 @@ for epoch in range(num_epochs):
             plt.show()
             # plt.savefig(f'./exp/20210818/{epoch}_{idx}.png')
             plt.clf()
-
 
             #

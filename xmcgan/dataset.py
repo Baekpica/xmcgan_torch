@@ -47,7 +47,7 @@ class COCO_Dataset(Dataset):
             transforms.Resize(256),
             transforms.CenterCrop(256),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         ])
         image = tf(image)
         return image, caption
